@@ -190,12 +190,17 @@ class Updater extends CI_Model {
 		rtrim($fields_string, '&');	
 		
 		curl_setopt($ch, CURLOPT_URL, $adr);
+		if($data != array()) {
 		curl_setopt($ch,CURLOPT_POST, count($data));
 		curl_setopt($ch,CURLOPT_POSTFIELDS, $fields_string);
+		
+		}
+		curl_setopt($ch,CURLOPT_USERAGENT,'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.13) Gecko/20080311 Firefox/2.0.0.13');
 		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);  // Follow the redirects (needed for mod_rewrite)
 		curl_setopt($ch, CURLOPT_HEADER, false);         // Don't retrieve headers   // Don't retrieve the body
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);  // Return from curl_exec rather than echoing
-		curl_setopt($ch, CURLOPT_FRESH_CONNECT, true);   // Always ensure the connection is fresh
+	//	curl_setopt($ch, CURLOPT_FRESH_CONNECT, true);   // Always ensure the connection is fresh
+		
 		
 		$data = curl_exec($ch);
 		curl_close($ch);
@@ -263,7 +268,7 @@ class Updater extends CI_Model {
 		$content = str_replace('&nbsp;','',$content);
 		
 		libxml_use_internal_errors(true);
-		
+	
 	   $DOM = new DOMDocument;
 	   if(!$DOM->loadHTML($content))
 	   	foreach (libxml_get_errors() as $error) {
@@ -284,8 +289,28 @@ class Updater extends CI_Model {
 			  }
 		
 		  }
+		  
+//Select 
+		$option_tag =  $DOM->getElementsByTagName('option');
+			foreach($option_tag as $tag){
+				$an_fiscal = $tag->getAttribute('value');
+				
+				
+				
+				
+				
+				$fiscal[$an_fiscal] = array();
+				
+				
+				
+			}
+		
 		  array_shift ($struct);
-	  return $struct;
+		  
+		  $return['date'] = $struct;
+		  $return['fiscal'] = $fiscal;
+		  
+	  return $return;
 	
 	}
 	
@@ -294,33 +319,47 @@ class Updater extends CI_Model {
 	//@param : int cif
 	//@return : array date
 	
-	function get_firma_fiscal($cif,$idfirma){
-
-		$url = "http://www.firme.info/srl-cui".$cif."/indicatori-financiari.html";
+	public function get_firma_fiscal($cif,$an){
 		
-		$content = curl_get($url);
+		
+		$data['an'] = $an;
+		$data['cod'] = $cif; 
+		$data['captcha'] = 'null';
+		$data['method.bilant'] = 'VIZUALIZARE';
+
+		$url = "http://www.mfinante.ro/infocodfiscal.html";
+		
+		$content = $this->curl_get($url,$data);
 		$content = str_replace('&nbsp;','',$content);
 		
-		echo $content;
+		//echo $content;
+		
+		libxml_use_internal_errors(true);
+	
 	   $DOM = new DOMDocument;
-	   $DOM->loadHTML($content);
+	   if(!$DOM->loadHTML($content))
+	   	foreach (libxml_get_errors() as $error) {
+        // handle errors here
+    	}
+
+   		 libxml_clear_errors();
 	   
 	   $items = $DOM->getElementsByTagName('td');
-		$k = 0;
-		$poz = 0;
-		for ($i = 14; $i < $items->length; $i++){
-			$val =  $items->item($i)->nodeValue;
-			
-			if($k%14 == 0){
-				$poz++;
-				$k=0;	
-			}
-				
-			$bilant[$poz][$k] = str_replace(',','',$val);
-			$k++;
-		}
-	
-		return $bilant;
+	   
+	   	   $k = 0;
+		  for ($i = 20; $i < 74; $i++){
+			  $itm = preg_replace( '/\s+/', ' ',str_replace(array("\r", "\n"), '', trim($this->remove_accents($items->item($i)->nodeValue))));
+			  if($i%2 != 0)
+				$struct[$k]['key'] = $itm;
+			  else {
+				  $struct[$k]['value'] = $itm;
+				  $k++;
+			  }
+		
+		  }
+	   
+		
+		return $struct;
 	
 	}
 	
