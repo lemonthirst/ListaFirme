@@ -50,7 +50,7 @@ class Updater extends CI_Model {
 		if ( !preg_match('/[\x80-\xff]/', $string) )
 			return $string;
 	
-		if (seems_utf8($string)) {
+		if ($this->seems_utf8($string)) {
 			$chars = array(
 			// Decompositions for Latin-1 Supplement
 			chr(195).chr(128) => 'A', chr(195).chr(129) => 'A',
@@ -184,7 +184,7 @@ class Updater extends CI_Model {
 	private function curl_get($adr,$data = array()) {
 		
 		$ch = curl_init();
-	
+		$fields_string = '';
 		foreach($data as $key=>$value) { $fields_string .= $key.'='.$value.'&'; }
 		
 		rtrim($fields_string, '&');	
@@ -262,13 +262,20 @@ class Updater extends CI_Model {
 		$content = $this->curl_get($url,$data);
 		$content = str_replace('&nbsp;','',$content);
 		
+		libxml_use_internal_errors(true);
+		
 	   $DOM = new DOMDocument;
-	   $DOM->loadHTML($content);
+	   if(!$DOM->loadHTML($content))
+	   	foreach (libxml_get_errors() as $error) {
+        // handle errors here
+    	}
+
+   		 libxml_clear_errors();
 	   
 	   $items = $DOM->getElementsByTagName('td');
 	   $k = 0;
 		  for ($i = 20; $i < 74; $i++){
-			  $itm = preg_replace( '/\s+/', ' ',str_replace(array("\r", "\n"), '', trim(remove_accents($items->item($i)->nodeValue))));
+			  $itm = preg_replace( '/\s+/', ' ',str_replace(array("\r", "\n"), '', trim($this->remove_accents($items->item($i)->nodeValue))));
 			  if($i%2 == 0)
 				$struct[$k]['key'] = $itm;
 			  else {
@@ -277,6 +284,7 @@ class Updater extends CI_Model {
 			  }
 		
 		  }
+		  array_shift ($struct);
 	  return $struct;
 	
 	}
@@ -289,7 +297,7 @@ class Updater extends CI_Model {
 	function get_firma_fiscal($cif,$idfirma){
 
 		$url = "http://www.firme.info/srl-cui".$cif."/indicatori-financiari.html";
-		//echo $url;
+		
 		$content = curl_get($url);
 		$content = str_replace('&nbsp;','',$content);
 		
