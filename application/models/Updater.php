@@ -295,13 +295,7 @@ class Updater extends CI_Model {
 			foreach($option_tag as $tag){
 				$an_fiscal = $tag->getAttribute('value');
 				
-				
-				
-				
-				
-				$fiscal[$an_fiscal] = array();
-				
-				
+				$fiscal[$an_fiscal] = $this->get_firma_fiscal($cif,$an_fiscal);
 				
 			}
 		
@@ -347,22 +341,103 @@ class Updater extends CI_Model {
 	   $items = $DOM->getElementsByTagName('td');
 	   
 	   	   $k = 0;
-		  for ($i = 20; $i < 74; $i++){
+		   $kt = 0;
+		  for ($i = 26; $i < $items->length; $i++){
 			  $itm = preg_replace( '/\s+/', ' ',str_replace(array("\r", "\n"), '', trim($this->remove_accents($items->item($i)->nodeValue))));
-			  if($i%2 != 0)
-				$struct[$k]['key'] = $itm;
-			  else {
-				  $struct[$k]['value'] = $itm;
-				  $k++;
+			  if($items->item($i)->getAttribute('colspan') != 2 ){
+				  if($kt%2 == 0) 
+					$struct[$k]['key'] = $itm;
+				  else {
+					$struct[$k]['value'] = $itm;
+					if($struct[$k]['key'] != '' && $struct[$k]['key'] != 'Indicatori din CONTUL DE PROFIT SI PIERDERE')
+						$k++;
+				  }
+				 $kt++;
 			  }
 		
 		  }
 	   
+	   array_pop($struct);
 		
 		return $struct;
 	
 	}
 	
+	public function format_data($cif){
+		
+	
+		$data = $this->get_firma_mfinante($cif);
+		
+		$return = array(
+				'denumire'=> $data['date'][0]['value'],
+				'adresa' => $data['date'][1]['value'],
+				'adresa_judet' => $data['date'][2]['value'],
+				'regcom' => $data['date'][3]['value'],	
+				'autorizatie' => $data['date'][4]['value'],
+				'adresa_postala' => $data['date'][5]['value'],
+				'telefon' => $data['date'][6]['value'],
+				'fax' => $data['date'][7]['value'],
+				'stare' => $data['date'][8]['value'],
+				'observatii' => $data['date'][9]['value'],
+				'data_declaratie' => $data['date'][10]['value'],
+				'data_prelucrare' => $data['date'][11]['value'],
+				'evidente' => array('impozit_profit'=>  $data['date'][12]['value'],
+									'impozit_micro' =>  $data['date'][13]['value'],
+									'accize' =>  $data['date'][14]['value'],
+									'tva' =>  $data['date'][15]['value'],
+									'asigurari_sociale' =>  $data['date'][16]['value'],
+									'asigurari_accidente' =>  $data['date'][17]['value'],
+									'asigurari_somaj' =>  $data['date'][18]['value'],
+									'asigurari_garantare' =>  $data['date'][19]['value'],
+									'asigurari_sanatate' =>  $data['date'][20]['value'],
+									'concedii' =>  $data['date'][21]['value'],
+									'jocuri_noroc' =>  $data['date'][22]['value'],
+									'impozit_salarii' =>  $data['date'][23]['value'],
+									'impozit_titei' =>  $data['date'][24]['value'],
+									'redevente_miniere' =>  $data['date'][25]['value'])
+						);
+									
+		foreach($data['fiscal'] as $key => $value)
+			$return['fiscal'][] = array(
+										'an' => str_replace('WEB_AN','',$key),
+										'active_imobilizate' => $value[0]['value'],
+										'active_circulante' => $value[1]['value'],
+										'stocuri' => $value[2]['value'],
+										'creante' => $value[3]['value'],
+										'casa_conturi' => $value[4]['value'],
+										'cheltuieli_avans' => $value[5]['value'],
+										'datorii' => $value[6]['value'],
+										'venituri_avans' => $value[7]['value'],
+										'provizioane' => $value[8]['value'],
+										'capitaluri' => $value[9]['value'],
+										'capital_social' => $value[10]['value'],
+										'patrimoniu_regie' => $value[11]['value'],
+										'patrimoniu_public' => $value[12]['value'],
+										'cifra_afaceri_neta' => $value[13]['value'],
+										'venituri_totale' => $value[14]['value'],
+										'cheltuieli_totale' => $value[15]['value'],
+										'profit_brut'  => $value[17]['value'],
+										'pierdere_brut'  => $value[18]['value'],
+										'profit_net' => $value[20]['value'],
+										'pierdere_net' => $value[21]['value'],
+										'nr_angajati' => $value[22]['value'],
+										'activitate' => $value[23]['value']);		
+
+		return $return;
+		
+	}
+	
+	public function save2db($data) {
+		
+		$this->load->database();
+		
+		
+		
+			
+		
+		
+		
+	}
 	
 	
 	
