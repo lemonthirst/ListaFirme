@@ -49,9 +49,9 @@ $active_group = 'default';
 $active_record = TRUE;
 
 $db['default']['hostname'] = 'localhost';
-$db['default']['username'] = '';
-$db['default']['password'] = '';
-$db['default']['database'] = '';
+$db['default']['username'] = 'devel_firme';
+$db['default']['password'] = 'adotsoftware';
+$db['default']['database'] = 'devel_firme';
 $db['default']['dbdriver'] = 'mysql';
 $db['default']['dbprefix'] = '';
 $db['default']['pconnect'] = TRUE;

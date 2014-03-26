@@ -4,6 +4,10 @@
 ///Updater.php
 
 class Updater extends CI_Model {
+	//Variabile globare
+	var $info = array();
+	
+	
 	
 	//###private function decode_utf8 ( string )###
 	//- Realizeaza decodare UTF 8 a diacriticelor
@@ -175,7 +179,11 @@ class Updater extends CI_Model {
 	
 		return $string;
 	}
-	
+	private function sanitize_key($key){
+		$characters = array(" ","-",",");
+		return 	str_replace($characters,"",$key);
+		
+	}
 	//###private function curl_get(string adresa , array data) ###
 	//@param string adresa - url ce trebuie preluat
 	//@param array data - array cu post-ul transmis
@@ -249,6 +257,14 @@ class Updater extends CI_Model {
                 $rest=0;
 		return $original.$rest;
 	  }
+	  
+	 public function next_cif($cif){
+		 
+		$base = substr($cif,0,-1) + 1;
+		
+		return $this->genereaza_cif($base); 
+		 
+	 }
 	 
 	//###public function get_firma_mfinante ( int cif ) ###
 	//- Preia si proceseaza datele de la Ministerul de Finante
@@ -302,7 +318,7 @@ class Updater extends CI_Model {
 		  array_shift ($struct);
 		  
 		  $return['date'] = $struct;
-		  $return['fiscal'] = $fiscal;
+		  $return['fiscal'] = (isset($fiscal)) ? $fiscal : array();
 		  
 	  return $return;
 	
@@ -362,13 +378,29 @@ class Updater extends CI_Model {
 		return $struct;
 	
 	}
+	private function get_from_array($an_fiscal,$key,$delete=true){
+		
+		
+		foreach($this->info['fiscal'][$an_fiscal] as $crt => $line)
+			if($this->sanitize_key(strtolower($line['key']))== $this->sanitize_key(strtolower($key))){
+				$value = str_replace("-","0",$line['value']);
+				if($delete)
+					unset($this->info['fiscal'][$an_fiscal][$crt]);
+				return $value;
+			}
+					
+		return 0;
+	}
 	
 	public function format_data($cif){
 		
 	
-		$data = $this->get_firma_mfinante($cif);
+		$this->info = $this->get_firma_mfinante($cif);
+		
+		$data = $this->info;
 		
 		$return = array(
+				'cui' => $cif,
 				'denumire'=> $data['date'][0]['value'],
 				'adresa' => $data['date'][1]['value'],
 				'adresa_judet' => $data['date'][2]['value'],
@@ -381,7 +413,8 @@ class Updater extends CI_Model {
 				'observatii' => $data['date'][9]['value'],
 				'data_declaratie' => $data['date'][10]['value'],
 				'data_prelucrare' => $data['date'][11]['value'],
-				'evidente' => array('impozit_profit'=>  $data['date'][12]['value'],
+				'evidente' => array('cui' => $cif,
+									'impozit_profit'=>  $data['date'][12]['value'],
 									'impozit_micro' =>  $data['date'][13]['value'],
 									'accize' =>  $data['date'][14]['value'],
 									'tva' =>  $data['date'][15]['value'],
@@ -396,51 +429,67 @@ class Updater extends CI_Model {
 									'impozit_titei' =>  $data['date'][24]['value'],
 									'redevente_miniere' =>  $data['date'][25]['value'])
 						);
-									
-		foreach($data['fiscal'] as $key => $value)
-			$return['fiscal'][] = array(
-										'an' => str_replace('WEB_AN','',$key),
-										'active_imobilizate' => $value[0]['value'],
-										'active_circulante' => $value[1]['value'],
-										'stocuri' => $value[2]['value'],
-										'creante' => $value[3]['value'],
-										'casa_conturi' => $value[4]['value'],
-										'cheltuieli_avans' => $value[5]['value'],
-										'datorii' => $value[6]['value'],
-										'venituri_avans' => $value[7]['value'],
-										'provizioane' => $value[8]['value'],
-										'capitaluri' => $value[9]['value'],
-										'capital_social' => $value[10]['value'],
-										'patrimoniu_regie' => $value[11]['value'],
-										'patrimoniu_public' => $value[12]['value'],
-										'cifra_afaceri_neta' => $value[13]['value'],
-										'venituri_totale' => $value[14]['value'],
-										'cheltuieli_totale' => $value[15]['value'],
-										'profit_brut'  => $value[17]['value'],
-										'pierdere_brut'  => $value[18]['value'],
-										'profit_net' => $value[20]['value'],
-										'pierdere_net' => $value[21]['value'],
-										'nr_angajati' => $value[22]['value'],
-										'activitate' => $value[23]['value']);		
-
+		if(isset($data['fiscal']))							
+			foreach($data['fiscal'] as $key => $value){
+				$return['fiscal'][] = array(
+											'cui' => $cif,
+											'an' => str_replace('WEB_AN','',$key),
+											'active_imobilizate' => $this->get_from_array($key,"ACTIVE IMOBILIZATE - TOTAL"),
+											'active_circulante' => $this->get_from_array($key,"ACTIVE CIRCULANTE - TOTAL, din care"),
+											'stocuri' =>$this->get_from_array($key,"Stocuri (materiale, productie in curs de executie, semifabricate, produse finite, marfuri etc.)"),
+											'creante' => $this->get_from_array($key,"Creante"),
+											'casa_conturi' => $this->get_from_array($key,"Casa si conturi la banci"),
+											'cheltuieli_avans' => $this->get_from_array($key,"CHELTUIELI IN AVANS"),
+											'datorii' => $this->get_from_array($key,"DATORII - TOTAL"),
+											'venituri_avans' => $this->get_from_array($key,"VENITURI IN AVANS"),
+											'provizioane' => $this->get_from_array($key,"PROVIZIOANE"),
+											'capitaluri' => ($this->get_from_array($key,"CAPITALURI - TOTAL, din care:",false) != '') ? $this->get_from_array($key,"CAPITALURI - TOTAL, din care:") :  $this->get_from_array($key,"Capitaluri - Total, din care"),
+											'capital_social' => ($this->get_from_array($key,"Capital social subscris varsat",false)!= '') ?$this->get_from_array($key,"Capital social subscris varsat") : $this->get_from_array($key,"Capital social subscris si varsat"),
+											'patrimoniu_regie' => $this->get_from_array($key,"Patrimoniul regiei"),
+											'patrimoniu_public' =>$this->get_from_array($key,"Patrimoniul public"),
+											'cifra_afaceri_neta' => ($this->get_from_array($key,"Cifra de afaceri neta",false) != '') ? $this->get_from_array($key,"Cifra de afaceri neta") : $this->get_from_array($key,"Cifra de afaceri"),
+											'venituri_totale' =>$this->get_from_array($key,"VENITURI TOTALE"),
+											'cheltuieli_totale' => $this->get_from_array($key,"CHELTUIELI TOTALE"),
+											'profit_brut'  => ($this->get_from_array($key,"-Profit",false) != '') ? $this->get_from_array($key,"-Profit") : $this->get_from_array($key,"Profitul brut al exercitiului"),
+											'pierdere_brut'  =>($this->get_from_array($key,"-Pierdere",false) != '') ? $this->get_from_array($key,"-Pierdere") : $this->get_from_array($key,"Pierderea bruta a exercitiului"),
+											'profit_net' =>  ($this->get_from_array($key,"-Profit",false) != '') ? $this->get_from_array($key,"-Profit") : $this->get_from_array($key,"Profitul net al exercitiului"),
+											'pierdere_net' => ($this->get_from_array($key,"-Pierdere",false) != '') ? $this->get_from_array($key,"-Pierdere") : $this->get_from_array($key,"Pierderea neta a exercitiului"),
+											'nr_angajati' => $this->get_from_array($key,"Numar mediu de salariati"),
+											'activitate' => $this->get_from_array($key,"Tipul de activitate, conform clasificarii CAEN"));		
+			}
 		return $return;
 		
 	}
 	
-	public function save2db($data) {
+	private function save2db($data) {
 		
 		$this->load->database();
 		
+		$data_bk = $data;
 		
+		$evidente = $data['evidente'];
+		$fiscal = (isset($data['fiscal'])) ? $data['fiscal'] : array();
 		
-			
+		unset($data['evidente']);
+		unset($data['fiscal']);
 		
-		
-		
+		$this->db->insert('lista_general',$data);
+	
+		$this->db->insert('lista_evidente',$evidente);
+		if(count($fiscal))
+		foreach($fiscal as $fiscal_ac)
+			$this->db->insert('lista_fiscal',$fiscal_ac);
+	
 	}
 	
 	
-	
+	public function firma($cif){
+		
+		
+		$data = $this->format_data($cif);
+		$this->save2db($data);	
+		
+	}
 	
 	
 }
